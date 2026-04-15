@@ -328,58 +328,13 @@
     }
   }
 
-  // ── URL-param mode (phone scanned QR → page opened with ?id=) ────────────
-  // If the page was opened via a QR scan, the product_id is already in the URL.
-  // Skip the scanner and show a "Take Photo" button instead.
+  // API is hosted on Render
+  document.getElementById("api-url-input").value = "https://authnet-backend.onrender.com";
 
-  // API is hosted on Render — hardcoded since frontend and backend are on different domains
-  const autoApiUrl = "https://authnet-backend.onrender.com";
-  document.getElementById("api-url-input").value = autoApiUrl;
-
-  const urlId = new URLSearchParams(window.location.search).get("id");
-
-  if (urlId) {
-    // ── Phone mode: ID already known from URL ──────────────────────────────
-    // Hide the QR scanner, auto-open the camera immediately — no button shown.
-    document.getElementById("reader").style.display = "none";
-    document.querySelector(".subtitle").textContent  = "Verifying product…";
-    setStatus("Opening camera…");
-
-    // Hidden file input — triggered programmatically so no button is visible
-    const fileInput = document.createElement("input");
-    fileInput.type   = "file";
-    fileInput.accept = "image/*";
-    fileInput.setAttribute("capture", "environment");
-    fileInput.style.display = "none";
-    document.body.appendChild(fileInput);
-
-    fileInput.addEventListener("change", async () => {
-      const file = fileInput.files[0];
-      if (!file) { setStatus("No image captured. Tap to retry."); return; }
-
-      setStatus("Verifying with AuthNet…");
-      const apiBase  = document.getElementById("api-url-input").value.trim();
-      const formData = new FormData();
-      formData.append("image",      file, "scan.png");
-      formData.append("product_id", urlId);
-
-      try {
-        const resp   = await fetch(`${apiBase}/verify`, { method: "POST", body: formData });
-        const result = await resp.json();
-        showResult(result, urlId);
-      } catch (err) {
-        setStatus(`API unreachable: ${err.message}`, "theme-error");
-      }
-    });
-
-    // Auto-trigger camera on page load — mimics real-world seamless flow
-    // Small delay lets the page finish rendering first
-    setTimeout(() => fileInput.click(), 600);
-
-  } else {
-    // No ID in URL — start the QR scanner normally (Pi 5 / desktop mode)
-    startScanner();
-  }
+  // Always use the live camera scanner regardless of device or URL params.
+  // GitHub Pages serves over HTTPS so getUserMedia works on all browsers including mobile.
+  // When the QR is detected the frame is captured and verified automatically — no tapping.
+  startScanner();
 </script>
 </body>
 </html>
