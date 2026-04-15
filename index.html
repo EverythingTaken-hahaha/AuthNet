@@ -312,7 +312,11 @@
     scanner = new Html5Qrcode("reader");
     scanner.start(
       { facingMode: "environment" },   // rear camera on phones / Pi cam
-      { fps: 10, qrbox: { width: 280, height: 280 } },
+      {
+        fps: 20,                              // more attempts per second
+        qrbox: { width: 350, height: 350 },   // larger detection area
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }  // use native decoder on supported browsers — faster and more accurate
+      },
       onQrDetected,
       () => {}   // suppress per-frame decode errors
     ).catch(err => {
@@ -331,10 +335,62 @@
   // API is hosted on Render
   document.getElementById("api-url-input").value = "https://authnet-backend.onrender.com";
 
-  // Always use the live camera scanner regardless of device or URL params.
-  // GitHub Pages serves over HTTPS so getUserMedia works on all browsers including mobile.
-  // When the QR is detected the frame is captured and verified automatically — no tapping.
-  startScanner();
+  const urlId = new URLSearchParams(window.location.search).get("id");
+
+  if (urlId) {
+    // ── Phone mode ────────────────────────────────────────────────────────────
+    // Native camera already decoded the QR and gave us ?id= in the URL.
+    // Don't re-scan — just open the camera, wait 2s to focus, auto-capture.
+    document.getElementById("reader").style.display = "none";
+    document.querySelector(".subtitle").textContent = "Hold steady — verifying…";
+    setStatus("Opening camera…");
+
+    const video  = document.createElement("video");
+    video.setAttribute("autoplay", "");
+    video.setAttribute("playsinline", "");   // required on iOS
+    video.style.cssText = "width:100%;max-width:420px;border-radius:12px;margin-bottom:12px;";
+    document.body.insertBefore(video, document.getElementById("status-bar"));
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        video.srcObject = stream;
+        setStatus("Focusing… hold the QR code steady");
+
+        // Auto-capture after 2.5s — gives camera time to focus
+        setTimeout(async () => {
+          setStatus("Capturing…");
+          const canvas = document.getElementById("capture-canvas");
+          canvas.width  = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext("2d").drawImage(video, 0, 0);
+
+          // Stop camera stream after capture
+          stream.getTracks().forEach(t => t.stop());
+          video.style.display = "none";
+
+          canvas.toBlob(async blob => {
+            setStatus("Verifying with AuthNet…");
+            const apiBase  = document.getElementById("api-url-input").value.trim();
+            const formData = new FormData();
+            formData.append("image",      blob, "scan.png");
+            formData.append("product_id", urlId);
+            try {
+              const resp   = await fetch(`${apiBase}/verify`, { method: "POST", body: formData });
+              const result = await resp.json();
+              showResult(result, urlId);
+            } catch (err) {
+              setStatus(`API unreachable: ${err.message}`, "theme-error");
+            }
+          }, "image/png");
+        }, 2500);
+      })
+      .catch(err => setStatus(`Camera error: ${err.message}`, "theme-error"));
+
+  } else {
+    // ── Pi 5 / desktop scanner mode ───────────────────────────────────────────
+    // No ?id= in URL — use html5-qrcode to detect and decode the QR.
+    startScanner();
+  }
 </script>
 </body>
 </html>
