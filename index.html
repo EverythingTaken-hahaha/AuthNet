@@ -42,8 +42,8 @@
       border: 2px solid #2a2a2a;
     }
 
-    /* Override html5-qrcode default white background */
-    #reader > * { background: #0f0f0f !important; }
+    /* Keep the reader background neutral so the video feed shows through */
+    #reader video { display: block; width: 100%; }
 
     /* ── Status badge ── */
     #status-bar {
