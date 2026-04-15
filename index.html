@@ -332,8 +332,8 @@
   // If the page was opened via a QR scan, the product_id is already in the URL.
   // Skip the scanner and show a "Take Photo" button instead.
 
-  // Auto-set API URL to same host the page is served from (works for phone too)
-  const autoApiUrl = `http://${window.location.hostname}:8000`;
+  // API is hosted on Render — hardcoded since frontend and backend are on different domains
+  const autoApiUrl = "https://authnet-backend.onrender.com";
   document.getElementById("api-url-input").value = autoApiUrl;
 
   const urlId = new URLSearchParams(window.location.search).get("id");
